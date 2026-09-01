@@ -1,44 +1,48 @@
 # Google Apps Script Invoice Email Automation
 
-A Google Workspace workflow automation project that streamlines recurring invoice preparation and email processing using Google Apps Script, Google Sheets, Google Drive, and Gmail.
+A Google Workspace automation project designed to streamline recurring invoice preparation and email processing using Google Apps Script, Google Sheets, Google Drive, and Gmail.
 
 > **Portfolio Project**
 >
-> This repository contains an anonymized portfolio version of a workflow originally developed for a real business process. All client names, email addresses, invoice information, identifiers, file references, and operational data shown in this repository are fictional or anonymized. No production client data is included.
+> This repository presents an anonymized version of a workflow originally developed for a real business process. All client names, email addresses, invoice references, file identifiers, and operational data shown here are fictional or anonymized. No production client data is included.
+
+---
 
 ## Overview
 
-The original invoice-delivery workflow involved multiple repetitive manual steps: matching invoice files to clients, retrieving billing contacts, preparing attachments, composing emails, sending invoices, tracking completion, and archiving processed files.
+The original invoice workflow involved multiple repetitive manual steps: retrieving client billing information, matching invoice files, preparing attachments, composing emails, sending invoices, tracking completion, and organizing processed documents.
 
-Existing automation options were evaluated, but the workflow required tighter integration with an existing Google Sheets and CRM-based operating process.
+Before developing a custom solution, existing automation tools were evaluated. However, the workflow required tighter integration with an existing Google Sheets and CRM-based process, as well as more control over how and when invoices were processed.
 
-I therefore developed a custom Google Apps Script solution that uses the existing spreadsheet as the operational control layer.
+I therefore built a custom Google Apps Script workflow using the existing spreadsheet as the operational control layer.
 
-The workflow supports:
+The solution supports:
 
 * CRM-linked client information lookup
-* invoice file renaming and automatic Drive linking
+* invoice file renaming and automatic Google Drive linking
 * reusable email templates with dynamic placeholders
 * invoice and supporting-document attachments
 * manual processing of all pending invoices
 * manual processing of selected invoice rows
 * scheduled invoice processing
 * pre-send validation
-* duplicate-send prevention
+* duplicate-processing prevention
 * status and timestamp logging
-* post-send file archiving
+* post-processing file archiving
+
+---
 
 ## Business Challenge
 
-The manual workflow required the operator to repeatedly:
+The original process required the operator to repeatedly:
 
 1. identify the correct client
 2. retrieve billing contact information
-3. locate invoice and breakdown files
+3. locate invoice and supporting files
 4. standardize file names
 5. attach the correct documents
 6. prepare the invoice email
-7. determine when or which invoices should be processed
+7. determine which invoices should be processed
 8. track completed sends
 9. organize completed files
 
@@ -51,62 +55,82 @@ This introduced avoidable operational friction and increased the risk of:
 * missed scheduled invoices
 * incomplete status tracking
 
-The objective was therefore not simply to automate email sending, but to create a controlled invoice-processing workflow around the existing Google Workspace environment.
+The objective was therefore not simply to automate email sending.
+
+The goal was to create a controlled invoice-processing workflow around the existing Google Workspace environment.
+
+---
 
 ## Solution Architecture
 
 ```text
 CRM Reference Data
-        |
-        v
+        │
+        ▼
 Invoice Control Sheet
-        |
-        +-- Client information lookup
-        +-- Invoice metadata
-        +-- File references
-        +-- Scheduled processing time
-        +-- Processing status
-        |
-        v
+        │
+        ├── Client information lookup
+        ├── Invoice metadata
+        ├── File references
+        ├── Scheduled processing time
+        └── Processing status
+        │
+        ▼
 Google Apps Script
-        |
-        +-- Validate records
-        +-- Match and rename files
-        +-- Generate email content
-        +-- Retrieve Drive attachments
-        +-- Determine processing mode
-        +-- Send through GmailApp
-        |
-        v
+        │
+        ├── Validate records
+        ├── Match and rename files
+        ├── Generate email content
+        ├── Retrieve Drive attachments
+        ├── Determine processing mode
+        └── Send through GmailApp
+        │
+        ▼
 Status Logging + File Archiving
 ```
 
-The design intentionally combines automation with operator control instead of forcing every invoice through the same execution path.
+The design intentionally combines automation with operator control rather than forcing every invoice through the same execution path.
+
+---
 
 ## Workflow
 
 ### 1. CRM-Linked Invoice Preparation
 
-Entering a client code in the invoice control sheet triggers a lookup against the CRM reference sheet.
+The invoice control sheet is linked to a separate CRM reference sheet.
 
-Available client information is automatically populated into the invoice record, including:
+When a client code is entered, an `onEdit()` trigger searches the CRM data and automatically retrieves available client information, including:
 
 * company name
 * billing email
 * CC email
 * other required CRM-linked information
 
-If the client code cannot be found, the record is flagged instead of silently continuing with incomplete data.
+If the client code cannot be found, the record is flagged rather than silently continuing with incomplete information.
 
 ![CRM-linked invoice setup](screenshots/01-crm-linked-invoice-setup.png)
 
 *CRM-linked invoice preparation using fictional portfolio records.*
 
-### 2. File Rename and Auto-Link
+---
 
-The script scans a designated Google Drive source folder and matches files against invoice records using either the client code or company name.
+### 2. File Rename Control
 
-Matched files are renamed using a standardized naming structure and their Drive URLs are written back to the corresponding invoice row.
+The workflow includes a spreadsheet-native custom menu so that users can execute operational functions without opening the Apps Script editor.
+
+One available action scans a designated Google Drive folder and prepares invoice files for processing.
+
+![File rename control](screenshots/02-file-rename-control.png)
+
+*The custom spreadsheet menu exposes invoice-processing functions directly to the operator.*
+
+---
+
+### 3. File Rename and Auto-Link
+
+Uploaded files are matched against invoice records using either the client code or company name.
+
+Matched files are renamed using a standardized naming convention.
 
 Example:
 
@@ -115,54 +139,74 @@ Northstar Retail_Invoice_09-2026.pdf
 Northstar Retail_Breakdown_09-2026.pdf
 ```
 
-![File rename and auto-link](screenshots/02-file-rename-auto-link.png)
+The corresponding Google Drive URLs are then written back to the invoice control sheet automatically.
 
-*Invoice and breakdown files are matched, renamed, and linked back to the corresponding records.*
+![File auto-link results](screenshots/03-file-auto-link-results.png)
+
+*Matched invoice and breakdown files are standardized and linked back to the corresponding invoice records.*
+
+---
 
 ## Processing Modes
 
-The workflow provides three operational processing modes.
+The workflow provides three processing paths.
 
 ### Send All Pending
 
 Processes all eligible records that have not already been successfully completed.
 
+This is designed for routine batch processing when multiple invoices are ready at the same time.
+
 ### Send Checked Only
 
 Processes only rows selected through spreadsheet checkboxes.
 
-This can be used for:
+This supports:
 
-* a single invoice
-* a controlled subset of invoices
-* exception handling
-* selective retries
+* sending a single invoice
+* processing a controlled subset
+* handling exceptions separately
+* selectively retrying records
 
 ### Scheduled Processing
 
-Invoices can include a scheduled processing time.
+Invoice rows can include a scheduled processing time.
 
-A time-driven Apps Script trigger periodically checks pending records and processes only those whose scheduled time has been reached.
+A time-driven Google Apps Script trigger periodically checks pending records and processes only those whose scheduled time has been reached.
 
-![Sending controls](screenshots/03-sending-controls.png)
+The current implementation uses an hourly trigger.
 
-*Spreadsheet-native controls allow operators to process all pending records, selected records, or enable scheduled processing.*
+![Selected send controls](screenshots/04-selected-send-controls.png)
+
+*Operators can process all pending records, selected records, or enable scheduled processing directly from Google Sheets.*
+
+---
+
+## Script Execution
+
+The workflow runs directly from the spreadsheet interface while the Apps Script handles the underlying validation, file access, template generation, sending logic, and status updates.
+
+![Script execution](screenshots/05-script-execution.png)
+
+*The spreadsheet remains the operational interface while Apps Script executes the automation in the background.*
+
+---
 
 ## Validation and Status Handling
 
-Before processing an invoice, the script checks whether the record contains the required information.
+Before processing an invoice, the script validates each record.
 
-Examples include:
+Checks include:
 
 * invoice number
 * recipient email
-* invoice or supporting file
-* previous successful-send status
-* scheduled processing time
+* linked invoice or supporting file
+* previous successful-processing status
+* scheduled processing time where applicable
 
 Records that fail validation are skipped and assigned an actionable status.
 
-Example statuses:
+Example statuses include:
 
 ```text
 Sent Success
@@ -174,17 +218,19 @@ Error: <runtime error>
 
 Successfully processed records also receive a timestamp.
 
-![Validation and send results](screenshots/04-validation-send-results.png)
+![Validation and send results](screenshots/06-validation-send-results.png)
 
 *Successful records are logged while incomplete records are skipped with explicit status messages.*
 
-This validation layer is especially important because the workflow ultimately supports external client communication. The automation should fail visibly rather than continue with incomplete invoice data.
+This validation layer is particularly important because the workflow supports external client communication. The automation is designed to fail visibly rather than continue with incomplete invoice data.
+
+---
 
 ## Dynamic Email Template
 
-Email content is stored separately from the main sending logic in an `Email_Template` sheet.
+Email content is maintained separately from the main processing logic in an `Email_Template` sheet.
 
-The subject and body support dynamic placeholders such as:
+The subject and body use dynamic placeholders such as:
 
 ```text
 {{Company Name}}
@@ -192,29 +238,33 @@ The subject and body support dynamic placeholders such as:
 {{Month Tag}}
 ```
 
-At runtime, the script replaces these placeholders with the corresponding invoice-record values before preparing the email.
+At runtime, the script replaces these placeholders with values from the corresponding invoice record.
 
-![Dynamic email template](screenshots/05-email-template.png)
+![Dynamic email template](screenshots/07-email-template.png)
 
-*The email template is maintained separately from the execution logic and populated dynamically at runtime.*
+*Email content is maintained separately from execution logic and populated dynamically at runtime.*
 
-This separation allows email copy to be maintained without modifying the core Apps Script logic.
+Separating the template from the core script allows email copy to be maintained without modifying the underlying automation.
+
+---
 
 ## Google Drive Attachment Handling
 
 Invoice and supporting-document URLs are stored in the invoice control sheet.
 
-The script:
+For each linked document, the script:
 
-1. reads each Drive URL
+1. reads the Drive URL
 2. extracts the Google Drive file ID
-3. retrieves the corresponding file through `DriveApp`
-4. converts the file into an attachment Blob
-5. adds the document to the Gmail attachment list
+3. retrieves the file through `DriveApp`
+4. converts the file into a Blob
+5. adds it to the Gmail attachment array
 
 The current implementation supports up to two linked files per invoice record.
 
-If the record contains file references but no usable attachment can be retrieved, processing is stopped rather than continuing without the intended documents.
+If file references exist but no usable attachment can be retrieved, processing is stopped instead of continuing without the intended documents.
+
+---
 
 ## Duplicate-Processing Prevention
 
@@ -226,11 +276,13 @@ Sent Success
 
 Future manual or scheduled processing checks this status and skips records that have already been completed.
 
-A processing timestamp is also written back to the spreadsheet to provide lightweight operational traceability.
+A completion timestamp is also written back to the sheet, providing lightweight operational traceability.
+
+---
 
 ## Post-Processing File Archiving
 
-After successful processing, related invoice files can be moved into month-specific archive folders.
+After successful processing, related invoice files can be moved from the working folder into month-specific archive folders.
 
 Example:
 
@@ -239,13 +291,15 @@ Archive_2026-08
 Archive_2026-09
 ```
 
-If the required archive folder does not yet exist, the script creates it automatically.
+If the required archive folder does not yet exist, the workflow creates it automatically.
 
-This separates active invoice documents from completed records.
+This keeps active invoice documents separated from completed records.
+
+---
 
 ## Spreadsheet Interface
 
-The Apps Script adds a custom menu directly to Google Sheets.
+The script adds a custom menu directly to Google Sheets.
 
 ```text
 Invoice Sending Tools
@@ -258,54 +312,72 @@ Invoice Sending Tools
 
 This allows operational users to execute the workflow without opening the Apps Script editor.
 
+---
+
 ## Technology Stack
 
 * Google Apps Script
 * Google Sheets
 * Google Drive
-* GmailApp
-* SpreadsheetApp
-* DriveApp
-* ScriptApp
-* Utilities
-* Google Apps Script triggers
+* Gmail
+* Google Apps Script Triggers
+
+Core Apps Script services include:
+
+```javascript
+SpreadsheetApp
+DriveApp
+GmailApp
+ScriptApp
+Utilities
+```
+
+---
 
 ## Key Implementation Patterns
 
-### Event-Driven Lookup
+### Event-Driven CRM Lookup
 
-`onEdit()` reacts to client-code changes and retrieves matching information from the CRM reference data.
+`onEdit()` reacts to client-code changes and retrieves matching information from the CRM reference sheet.
 
 ### Shared Row Processor
 
-Manual and scheduled workflows use a common row-processing function rather than maintaining separate implementations for each processing mode.
+Manual and scheduled workflows use the same core row-processing logic rather than maintaining completely separate implementations.
 
 ### Time-Driven Automation
 
-An installable trigger runs the scheduled-processing entry point periodically.
+An installable trigger invokes scheduled processing periodically.
 
-### Template-Driven Content
+### Template-Driven Email Generation
 
-Email content is maintained separately from execution logic and populated through placeholders.
+Email copy is maintained separately from the execution code and populated using placeholders.
 
 ### File-System Integration
 
-Google Drive is used for file matching, renaming, linking, attachment retrieval, and archiving.
+Google Drive is used for:
+
+* file matching
+* renaming
+* URL linking
+* attachment retrieval
+* archiving
 
 ### Row-Level Operational Logging
 
-Each invoice record stores its processing status and completion timestamp.
+Each invoice record stores its processing result and completion timestamp.
+
+---
 
 ## Build vs. Buy Decision
 
-Before building the custom workflow, existing automation options were considered.
+Existing automation options were evaluated before developing the custom workflow.
 
 The required process involved more than scheduled email delivery. It needed to coordinate:
 
 * CRM-based client lookup
-* existing Google Sheets workflows
+* an existing Google Sheets workflow
 * file matching
-* standardized naming
+* standardized file naming
 * multiple attachments
 * selective processing
 * batch processing
@@ -314,15 +386,17 @@ The required process involved more than scheduled email delivery. It needed to c
 * status tracking
 * Drive archiving
 
-Because the operating process already lived primarily inside Google Workspace, Apps Script provided a lightweight way to automate the workflow without introducing an additional standalone platform.
+Because the operating workflow already lived primarily inside Google Workspace, Apps Script provided a lightweight way to automate the process without introducing another standalone operational platform.
 
-The design principle was:
+The guiding design principle was:
 
-> Automate repetitive execution while preserving human control over exceptions and processing decisions.
+> **Automate repetitive execution while preserving human control over exceptions and processing decisions.**
+
+---
 
 ## Outcome
 
-The project transformed a repetitive invoice-email workflow into a structured Google Workspace process with centralized control, automated validation, and multiple execution modes.
+The project transformed a repetitive invoice-email workflow into a structured Google Workspace process with centralized control, automated validation, and multiple processing modes.
 
 The resulting workflow improved consistency around:
 
@@ -336,17 +410,19 @@ The resulting workflow improved consistency around:
 
 No numerical time-saving or error-reduction claims are included because production performance data is not published in this portfolio repository.
 
+---
+
 ## Privacy and Anonymization
 
 This repository is intended strictly for portfolio demonstration.
 
-The public version does not contain production client information.
+The public version does **not** contain production client information.
 
 The following information has been removed, replaced, or fictionalized:
 
 * company and client names
 * client codes
-* recipient addresses
+* recipient email addresses
 * CC addresses
 * invoice numbers
 * financial information
@@ -356,7 +432,7 @@ The following information has been removed, replaced, or fictionalized:
 * production email content
 * other operational identifiers
 
-Example portfolio entities include:
+Example portfolio records use fictional entities such as:
 
 ```text
 CLIENT_A | Northstar Retail
@@ -365,53 +441,63 @@ CLIENT_C | Cedar & Co.
 CLIENT_D | Summit Property Group
 ```
 
-Example addresses use non-production values such as:
+Example email addresses use non-production domains such as:
 
 ```text
 billing@example.com
 finance@example.com
+accounts@example.com
 ```
 
 The public source code preserves the workflow architecture and implementation concepts while removing production-specific data and configuration.
 
+---
+
 ## Repository Structure
 
 ```text
-google-apps-script-invoice-email-automation/
+Google-Apps-Script-Invoice-Email-Automation/
+│
 ├── README.md
+│
 ├── src/
 │   └── invoice-email-automation.gs
-├── screenshots/
-│   ├── 01-crm-linked-invoice-setup.png
-│   ├── 02-file-rename-auto-link.png
-│   ├── 03-sending-controls.png
-│   ├── 04-validation-send-results.png
-│   └── 05-email-template.png
-├── docs/
-│   └── privacy-and-anonymization.md
-├── .gitignore
-└── LICENSE
+│
+└── screenshots/
+    ├── 01-crm-linked-invoice-setup.png
+    ├── 02-file-rename-control.png
+    ├── 03-file-auto-link-results.png
+    ├── 04-selected-send-controls.png
+    ├── 05-script-execution.png
+    ├── 06-validation-send-results.png
+    └── 07-email-template.png
 ```
 
-## Future Improvements
+---
 
-Potential enhancements include:
+## Potential Improvements
 
-* replacing column index values with named configuration constants
+Potential future enhancements include:
+
+* replacing numeric column indexes with named constants
 * centralized configuration management
-* structured execution logs
-* stronger email-address validation
 * configurable timezone handling
-* improved retry and error-state management
+* stronger email-address validation
+* structured execution logging
+* improved retry and error-state handling
 * `LockService` protection against overlapping executions
 * batch spreadsheet writes for improved performance
 * more explicit archive-failure reporting
-* automated testing for pure helper functions
+* automated tests for helper functions that do not depend on Google services
 
-These are presented as potential improvements rather than functionality claimed by the current implementation.
+These are presented as potential enhancements and are not claimed as functionality in the current implementation.
+
+---
 
 ## Disclaimer
 
 This project is presented for portfolio and demonstration purposes.
 
-All screenshots, records, names, email addresses, invoice references, and sample content are fictional or anonymized. No production client data is included.
+All screenshots, client records, names, email addresses, invoice references, and sample content are fictional or anonymized.
+
+No production client data is included.
