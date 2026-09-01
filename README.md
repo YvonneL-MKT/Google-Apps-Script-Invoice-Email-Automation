@@ -218,7 +218,7 @@ Error: <runtime error>
 
 Successfully processed records also receive a timestamp.
 
-![Validation and send results](screenshots/06-validation-send-results.png)
+![Validation and send results](screenshots/06-validation-send-results-02.png)
 
 *Successful records are logged while incomplete records are skipped with explicit status messages.*
 
